@@ -1,0 +1,19 @@
+{
+    "manifest_version": 3,
+    "name": "Meta Panic",
+    "description": "Base Level Extension",
+    "version": "1.0",
+    "action": {
+      "default_popup": "main.html",
+      "default_icon": "favicon.png"
+    },
+    "content_scripts": [
+        {
+          "js": ["scripts/content.js", "scripts/xlsx.full.min.js"],
+          "css": ["style.css"],
+          "matches": [
+            "https://tracuunnt.gdt.gov.vn/*"
+          ]
+        }
+      ]
+  }
