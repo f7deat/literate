@@ -9,12 +9,57 @@ captcha.addEventListener('keydown', (e) => {
         }
         const btn = document.querySelector('.subBtn');
         btn.click();
-        console.log('OK!');
+        Toastify({ text: `Nhập mã số thuế ${taxCode.value} thành công!`, duration: 3000 }).showToast();
     }
 });
 
+const nextTax = () => {
+    const taxCode = document.querySelector('input[name="mst"]');
+    const tax_codesStorage = localStorage.getItem('tax_codes');
+    if (tax_codesStorage) {
+        let tax_codes = tax_codesStorage.split(',');
+        // Xóa mã số thuế đã nhập
+        tax_codes = tax_codes.filter(x => x !== taxCode.value);
+        localStorage.setItem('tax_codes', tax_codes.join(','));
+        // Nạp mã số thuế tiếp theo
+        if (tax_codes.length > 0) {
+            taxCode.value = tax_codes[0];
+        }
+        const taxtCodesElement = document.querySelector('#taxCodes');
+        if (taxtCodesElement) {
+            taxtCodesElement.value = tax_codes.join(',');
+        }
+    }
+}
+
 const init = () => {
     const taxCode = document.querySelector('input[name="mst"]');
+    if (!document.querySelector('#taxCodes')) {
+        const container = document.createElement('div');
+        container.classList.add('tax_codes');
+        const input = document.createElement('textarea');
+        if (localStorage.getItem('tax_codes')) {
+            input.value = localStorage.getItem('tax_codes');
+        }
+        input.id = 'taxCodes'
+        container.append(input);
+        const btnTaxCodes = document.createElement('button');
+        btnTaxCodes.textContent = 'Nạp dữ liệu';
+        btnTaxCodes.classList.add('btn');
+        btnTaxCodes.addEventListener('click', () => {
+            if (!input.value) {
+                Toastify({ text: "Vui lòng nạp dữ liệu!", duration: 3000 }).showToast();
+                return;
+            }
+            const tax_codes = input.value.split('\n');
+            taxCode.value = tax_codes[0];
+            localStorage.setItem('tax_codes', tax_codes.join(','));
+            input.value = tax_codes.join(',')
+        });
+        container.append(btnTaxCodes);
+        document.body.append(container);
+    }
+
     if (!taxCode || !taxCode.value) {
         return;
     }
@@ -37,13 +82,11 @@ const init = () => {
                 'Director': '',
                 'DirectorAddress': ''
             }
-            // const item = `'${record[1].textContent.trim()},${record[2].textContent.trim()},${record[3].textContent.trim()},'${record[4].textContent.trim()},${record[5].textContent.trim()}`;
             if (!data.find(x => x.MST === record[1].textContent.trim())) {
                 data.push(item)
-                // data += item + ',';
                 localStorage.setItem('meta_panic', JSON.stringify(data));
             }
-            let form = document.querySelector('form');
+            const form = document.querySelector('form');
             form.id.value = item.MST;
             form.submit();
         }
@@ -56,8 +99,9 @@ const init = () => {
         if (index !== -1) {
             data[index].Address = table.rows[3].cells[1].textContent.trim();
             data[index].Director = table.rows[12].cells[1].textContent.trim();
-            data[index].DirectorAddress = table.rows[12].cells[3].textContent.trim();
+            data[index].DirectorAddress = table.rows[11].cells[3].textContent.trim();
             localStorage.setItem('meta_panic', JSON.stringify(data));
+            nextTax();
         }
     }
 }
@@ -110,25 +154,10 @@ div.append(btnClear);
 
 document.querySelector('#tcmst').append(div);
 
-makeTextFile = function (text) {
-    var data = new Blob([decodeURIComponent('%ef%bb%bf'), text], { type: 'text/csv;charset=utf-8' });
-
-    // If we are replacing a previously generated file we need to
-    // manually revoke the object URL to avoid memory leaks.
-    if (textFile !== null) {
-        window.URL.revokeObjectURL(textFile);
-    }
-
-    var textFile = window.URL.createObjectURL(data);
-
-    // returns a URL you can use as a href
-    return textFile;
-};
-
 btnDownload.addEventListener('click', function () {
     const data = localStorage.getItem('meta_panic');
     if (!data) {
-        alert('Dữ liệu trống!');
+        Toastify({ text: "Chưa có dữ liệu!", duration: 3000 }).showToast();
         return;
     }
     filename = 'reports.xlsx';
@@ -140,5 +169,5 @@ btnDownload.addEventListener('click', function () {
 
 btnClear.addEventListener('click', () => {
     localStorage.clear();
-    alert('Xóa thành công!');
+    Toastify({ text: "Xóa thành công!", duration: 3000 }).showToast();
 })

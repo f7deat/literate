@@ -1,0 +1,23 @@
+.btn {
+    padding: 0.25rem 0.5rem;
+    background-color: tomato;
+    color: white;
+    border: 0;
+}
+.tax_codes {
+    width: 300px;
+    position: fixed;
+    right: 0;
+    top: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+.tax_codes textarea {
+    width: 100%;
+    height: 100%;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    outline: none;
+    border: 1px solid #d1d1d1;
+}
