@@ -98,7 +98,7 @@ const init = () => {
         const index = data.findIndex(x => x.MST === taxCode);
         if (index !== -1) {
             data[index].Address = table.rows[3].cells[1].textContent.trim();
-            data[index].Director = table.rows[12].cells[1].textContent.trim();
+            data[index].Director = table.rows[11].cells[1].textContent.trim();
             data[index].DirectorAddress = table.rows[11].cells[3].textContent.trim();
             localStorage.setItem('meta_panic', JSON.stringify(data));
             nextTax();
