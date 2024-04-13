@@ -72,6 +72,24 @@ const init = () => {
         const record = table.rows[1].cells;
         if (record) {
             let data = JSON.parse(localStorage.getItem('meta_panic') || '[]');
+            if (!record[1]) {
+                const item = {
+                    'STT': data.length + 1,
+                    'MST': taxCode.value,
+                    'Name': record[0].textContent.trim(),
+                    'Address': '',
+                    'CCCD': '',
+                    'Note': '',
+                    'Director': '',
+                    'DirectorAddress': ''
+                }
+                if (!data.find(x => x.MST === taxCode.value)) {
+                    data.push(item)
+                    localStorage.setItem('meta_panic', JSON.stringify(data));
+                }
+                nextTax();
+                return;
+            }
             const item = {
                 'STT': data.length + 1,
                 'MST': record[1].textContent.trim(),
