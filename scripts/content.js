@@ -1,191 +1,396 @@
-const captcha = document.querySelector("#captcha");
+// Configuration
+const CONFIG = {
+    TOAST_DURATION: 3000,
+    EXCEL_FILENAME: 'reports.xlsx',
+    TAILWIND_CSS_URL: 'https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css'
+};
 
-captcha.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-        const taxCode = document.querySelector('input[name="mst"]');
-        if (!taxCode || !taxCode.value) {
-            console.log('Vui lòng nhập mã số thuế!');
+// Constants
+const STORAGE_KEYS = {
+    TAX_CODES: 'tax_codes',
+    META_PANIC: 'meta_panic'
+};
+
+const SELECTORS = {
+    CAPTCHA: '#captcha',
+    TAX_INPUT: 'input[name="mst"]',
+    SUBMIT_BTN: '.subBtn',
+    TAX_CODES: '#taxCodes',
+    TABLE: '.ta_border',
+    TITLE: 'h3',
+    FORM: 'form[name=myform]'
+};
+
+const TITLES = {
+    SEARCH_INFO: 'BẢNG THÔNG TIN TRA CỨU:',
+    DETAIL_INFO: 'Thông tin chi tiết: Đầu trang'
+};
+
+const MESSAGES = {
+    EMPTY_TAX_CODE: 'Vui lòng nhập mã số thuế!',
+    TAX_CODE_SUCCESS: 'Nhập mã số thuế {taxCode} thành công!',
+    LOAD_DATA_EMPTY: 'Vui lòng nạp dữ liệu!',
+    LOAD_DATA_SUCCESS: 'Nạp dữ liệu thành công!',
+    NO_DATA_TO_DOWNLOAD: 'Chưa có dữ liệu!',
+    DOWNLOAD_SUCCESS: 'Tải xuống thành công!',
+    CACHE_CLEARED: 'Xóa thành công!'
+};
+
+// Storage utilities
+const StorageUtil = {
+    getTaxCodes() {
+        const data = localStorage.getItem(STORAGE_KEYS.TAX_CODES);
+        return data ? data.split(',').filter(code => code.trim()) : [];
+    },
+
+    setTaxCodes(codes) {
+        localStorage.setItem(STORAGE_KEYS.TAX_CODES, codes.join(','));
+    },
+
+    getMetaData() {
+        return JSON.parse(localStorage.getItem(STORAGE_KEYS.META_PANIC) || '[]');
+    },
+
+    setMetaData(data) {
+        localStorage.setItem(STORAGE_KEYS.META_PANIC, JSON.stringify(data));
+    },
+
+    clear() {
+        localStorage.clear();
+    }
+};
+
+// Toast utility
+const ToastUtil = {
+    show(message, duration = 3000) {
+        Toastify({ text: message, duration }).showToast();
+    },
+
+    success(message) {
+        this.show(message);
+    },
+
+    error(message) {
+        this.show(message);
+    }
+};
+
+// DOM utilities
+const DOMUtil = {
+    querySelector(selector) {
+        return document.querySelector(selector);
+    },
+
+    createElement(tag, options = {}) {
+        const element = document.createElement(tag);
+        
+        if (options.textContent) element.textContent = options.textContent;
+        if (options.classes) element.classList.add(...options.classes);
+        if (options.id) element.id = options.id;
+        if (options.type) element.type = options.type;
+        if (options.styles) {
+            Object.entries(options.styles).forEach(([prop, value]) => {
+                element.style.setProperty(prop, value);
+            });
+        }
+        
+        return element;
+    }
+};
+
+// Tax code management
+class TaxCodeManager {
+    constructor() {
+        this.taxInput = DOMUtil.querySelector(SELECTORS.TAX_INPUT);
+        this.captcha = DOMUtil.querySelector(SELECTORS.CAPTCHA);
+        this.initEventListeners();
+    }
+
+    initEventListeners() {
+        if (this.captcha) {
+            this.captcha.addEventListener('keydown', (e) => this.handleCaptchaEnter(e));
+        }
+    }
+
+    handleCaptchaEnter(e) {
+        if (e.key === 'Enter') {
+            if (!this.taxInput?.value) {
+                ToastUtil.error(MESSAGES.EMPTY_TAX_CODE);
+                return;
+            }
+            
+            const submitBtn = DOMUtil.querySelector(SELECTORS.SUBMIT_BTN);
+            if (submitBtn) {
+                submitBtn.click();
+                ToastUtil.success(MESSAGES.TAX_CODE_SUCCESS.replace('{taxCode}', this.taxInput.value));
+            }
+        }
+    }
+
+    nextTax() {
+        const taxCodes = StorageUtil.getTaxCodes();
+        
+        if (taxCodes.length === 0) return;
+
+        // Remove current tax code and get next one
+        const filteredCodes = taxCodes.filter(code => code !== this.taxInput?.value);
+        StorageUtil.setTaxCodes(filteredCodes);
+
+        // Load next tax code
+        if (filteredCodes.length > 0 && this.taxInput) {
+            this.taxInput.value = filteredCodes[0];
+        }
+
+        // Update tax codes display
+        const taxCodesElement = DOMUtil.querySelector(SELECTORS.TAX_CODES);
+        if (taxCodesElement) {
+            taxCodesElement.value = filteredCodes.join(',');
+        }
+    }
+
+    loadInitialTaxCode() {
+        if (!this.taxInput) return;
+
+        const taxCodes = StorageUtil.getTaxCodes();
+        if (taxCodes.length > 0) {
+            this.taxInput.value = taxCodes[0];
+        }
+    }
+}
+
+// UI Management
+class UIManager {
+    constructor(taxCodeManager) {
+        this.taxCodeManager = taxCodeManager;
+    }
+
+    createTaxCodesInput() {
+        if (DOMUtil.querySelector(SELECTORS.TAX_CODES)) return;
+
+        const container = DOMUtil.createElement('div', { classes: ['tax_codes'] });
+        const input = DOMUtil.createElement('textarea', {
+            id: 'taxCodes'
+        });
+
+        const existingData = StorageUtil.getTaxCodes();
+        if (existingData.length > 0) {
+            input.value = existingData.join(',');
+        }
+
+        const loadButton = DOMUtil.createElement('button', {
+            textContent: 'Nạp dữ liệu',
+            classes: ['btn']
+        });
+
+        loadButton.addEventListener('click', () => this.handleLoadTaxCodes(input));
+
+        container.appendChild(input);
+        container.appendChild(loadButton);
+        document.body.appendChild(container);
+    }
+
+    handleLoadTaxCodes(input) {
+        if (!input.value) {
+            ToastUtil.error(MESSAGES.LOAD_DATA_EMPTY);
             return;
         }
-        const btn = document.querySelector('.subBtn');
-        btn.click();
-        Toastify({ text: `Nhập mã số thuế ${taxCode.value} thành công!`, duration: 3000 }).showToast();
-    }
-});
 
-const nextTax = () => {
-    const taxCode = document.querySelector('input[name="mst"]');
-    const tax_codesStorage = localStorage.getItem('tax_codes');
-    if (tax_codesStorage) {
-        let tax_codes = tax_codesStorage.split(',');
-        // Xóa mã số thuế đã nhập
-        tax_codes = tax_codes.filter(x => x !== taxCode.value);
-        localStorage.setItem('tax_codes', tax_codes.join(','));
-        // Nạp mã số thuế tiếp theo
-        if (tax_codes.length > 0) {
-            taxCode.value = tax_codes[0];
+        const taxCodes = input.value.split('\n').filter(code => code.trim());
+        StorageUtil.setTaxCodes(taxCodes);
+        
+        if (this.taxCodeManager.taxInput && taxCodes.length > 0) {
+            this.taxCodeManager.taxInput.value = taxCodes[0];
         }
-        const taxtCodesElement = document.querySelector('#taxCodes');
-        if (taxtCodesElement) {
-            taxtCodesElement.value = tax_codes.join(',');
+        
+        input.value = taxCodes.join(',');
+        ToastUtil.success(MESSAGES.LOAD_DATA_SUCCESS);
+    }
+
+    createDownloadButtons() {
+        const form = DOMUtil.querySelector(SELECTORS.FORM);
+        if (!form) return;
+
+        const container = DOMUtil.createElement('div', {
+            styles: {
+                display: 'flex',
+                gap: '1rem',
+                'justify-content': 'center',
+                'margin-top': '1rem'
+            }
+        });
+
+        const downloadBtn = this.createStyledButton('Download', () => this.handleDownload());
+        const clearBtn = this.createStyledButton('Xóa cache', () => this.handleClearCache());
+
+        container.appendChild(downloadBtn);
+        container.appendChild(clearBtn);
+        form.appendChild(container);
+    }
+
+    createStyledButton(text, clickHandler) {
+        const button = DOMUtil.createElement('button', {
+            textContent: text,
+            type: 'button',
+            styles: {
+                background: '#c4141b',
+                color: 'white',
+                cursor: 'pointer',
+                border: '0',
+                padding: '0.5rem 1rem',
+                display: 'block',
+                width: '100%'
+            }
+        });
+        
+        button.addEventListener('click', clickHandler);
+        return button;
+    }
+
+    handleDownload() {
+        const data = StorageUtil.getMetaData();
+        if (data.length === 0) {
+            ToastUtil.error(MESSAGES.NO_DATA_TO_DOWNLOAD);
+            return;
         }
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "People");
+        XLSX.writeFile(wb, CONFIG.EXCEL_FILENAME);
+        ToastUtil.success(MESSAGES.DOWNLOAD_SUCCESS);
+    }
+
+    handleClearCache() {
+        StorageUtil.clear();
+        ToastUtil.success(MESSAGES.CACHE_CLEARED);
     }
 }
 
-const init = () => {
-    const taxCode = document.querySelector('input[name="mst"]');
-    if (!document.querySelector('#taxCodes')) {
-        const container = document.createElement('div');
-        container.classList.add('tax_codes');
-        const input = document.createElement('textarea');
-        if (localStorage.getItem('tax_codes')) {
-            input.value = localStorage.getItem('tax_codes');
-        }
-        input.id = 'taxCodes'
-        container.append(input);
-        const btnTaxCodes = document.createElement('button');
-        btnTaxCodes.textContent = 'Nạp dữ liệu';
-        btnTaxCodes.classList.add('btn');
-        btnTaxCodes.addEventListener('click', () => {
-            if (!input.value) {
-                Toastify({ text: "Vui lòng nạp dữ liệu!", duration: 3000 }).showToast();
-                return;
-            }
-            const tax_codes = input.value.split('\n');
-            taxCode.value = tax_codes[0];
-            localStorage.setItem('tax_codes', tax_codes.join(','));
-            input.value = tax_codes.join(',')
-        });
-        container.append(btnTaxCodes);
-        document.body.append(container);
+// Data Processing
+class DataProcessor {
+    constructor(taxCodeManager) {
+        this.taxCodeManager = taxCodeManager;
     }
 
-    if (!taxCode || !taxCode.value) {
-        return;
-    }
-    const table = document.querySelector('.ta_border');
-    if (!table) {
-        return;
-    }
-    const title = document.querySelector('h3').textContent.trim();
-    if (title === 'BẢNG THÔNG TIN TRA CỨU:') {
-        const record = table.rows[1].cells;
-        if (record) {
-            let data = JSON.parse(localStorage.getItem('meta_panic') || '[]');
-            if (!record[1]) {
-                const item = {
-                    'STT': data.length + 1,
-                    'MST': taxCode.value,
-                    'Name': record[0].textContent.trim(),
-                    'Address': '',
-                    'CCCD': '',
-                    'Note': '',
-                    'Director': '',
-                    'DirectorAddress': ''
-                }
-                if (!data.find(x => x.MST === taxCode.value)) {
-                    data.push(item)
-                    localStorage.setItem('meta_panic', JSON.stringify(data));
-                }
-                nextTax();
-                return;
-            }
-            const item = {
-                'STT': data.length + 1,
-                'MST': record[1].textContent.trim(),
-                'Name': record[2].textContent.trim(),
-                'Address': '',
-                'CCCD': record[4].textContent.trim(),
-                'Note': record[6].textContent.trim(),
-                'Director': '',
-                'DirectorAddress': ''
-            }
-            if (!data.find(x => x.MST === record[1].textContent.trim())) {
-                data.push(item)
-                localStorage.setItem('meta_panic', JSON.stringify(data));
-            }
-            const form = document.querySelector('form');
-            form.id.value = item.MST;
-            form.submit();
+    processPage() {
+        const taxInput = this.taxCodeManager.taxInput;
+        if (!taxInput?.value) return;
+
+        const table = DOMUtil.querySelector(SELECTORS.TABLE);
+        if (!table) return;
+
+        const titleElement = DOMUtil.querySelector(SELECTORS.TITLE);
+        if (!titleElement) return;
+
+        const title = titleElement.textContent.trim();
+
+        if (title === TITLES.SEARCH_INFO) {
+            this.processSearchResults(table);
+        } else if (title === TITLES.DETAIL_INFO) {
+            this.processDetailInfo(table);
         }
     }
-    if (title === 'Thông tin chi tiết: Đầu trang') {
-        let data = JSON.parse(localStorage.getItem('meta_panic') || '[]');
-        const table = document.querySelector('.ta_border');
-        const taxCode = table.rows[0].cells[1].textContent.trim();
+
+    processSearchResults(table) {
+        const record = table.rows[1]?.cells;
+        if (!record) return;
+
+        const data = StorageUtil.getMetaData();
+        const taxInput = this.taxCodeManager.taxInput;
+
+        let item;
+        if (!record[1]) {
+            // Single column result
+            item = {
+                STT: data.length + 1,
+                MST: taxInput.value,
+                Name: record[0].textContent.trim(),
+                Address: '',
+                CCCD: '',
+                Note: '',
+                Director: '',
+                DirectorAddress: ''
+            };
+        } else {
+            // Full record
+            item = {
+                STT: data.length + 1,
+                MST: record[1].textContent.trim(),
+                Name: record[2].textContent.trim(),
+                Address: '',
+                CCCD: record[4].textContent.trim(),
+                Note: record[6].textContent.trim(),
+                Director: '',
+                DirectorAddress: ''
+            };
+        }
+
+        if (!data.find(x => x.MST === item.MST)) {
+            data.push(item);
+            StorageUtil.setMetaData(data);
+        }
+
+        if (record[1]) {
+            // Submit form for detailed info
+            const form = DOMUtil.querySelector(SELECTORS.FORM);
+            if (form && form.id) {
+                form.id.value = item.MST;
+                form.submit();
+                return;
+            }
+        }
+
+        this.taxCodeManager.nextTax();
+    }
+
+    processDetailInfo(table) {
+        const data = StorageUtil.getMetaData();
+        const taxCode = table.rows[0]?.cells[1]?.textContent.trim();
+        
+        if (!taxCode) return;
+
         const index = data.findIndex(x => x.MST === taxCode);
         if (index !== -1) {
-            data[index].Address = table.rows[3].cells[1].textContent.trim();
-            data[index].Director = table.rows[11].cells[1].textContent.trim();
-            data[index].DirectorAddress = table.rows[11].cells[3].textContent.trim();
-            localStorage.setItem('meta_panic', JSON.stringify(data));
-            nextTax();
+            data[index].Address = table.rows[3]?.cells[1]?.textContent.trim() || '';
+            data[index].Director = table.rows[11]?.cells[1]?.textContent.trim() || '';
+            data[index].DirectorAddress = table.rows[11]?.cells[3]?.textContent.trim() || '';
+            StorageUtil.setMetaData(data);
+        }
+
+        this.taxCodeManager.nextTax();
+    }
+}
+
+// Main Application
+class TaxCodeApp {
+    constructor() {
+        this.taxCodeManager = new TaxCodeManager();
+        this.uiManager = new UIManager(this.taxCodeManager);
+        this.dataProcessor = new DataProcessor(this.taxCodeManager);
+        this.init();
+    }
+
+    init() {
+        this.loadExternalStyles();
+        this.uiManager.createTaxCodesInput();
+        this.uiManager.createDownloadButtons();
+        this.taxCodeManager.loadInitialTaxCode();
+        this.dataProcessor.processPage();
+    }
+
+    loadExternalStyles() {
+        const cssId = 'tailwindCSS';
+        if (!document.getElementById(cssId)) {
+            const head = document.getElementsByTagName('head')[0];
+            const link = document.createElement('link');
+            link.id = cssId;
+            link.rel = 'stylesheet';
+            link.type = 'text/css';
+            link.href = CONFIG.TAILWIND_CSS_URL;
+            head.appendChild(link);
         }
     }
 }
 
-init();
-
-function addOn() {
-    const cssId = 'myCss';
-    if (!document.getElementById(cssId)) {
-        var head = document.getElementsByTagName('head')[0];
-        var link = document.createElement('link');
-        link.id = cssId;
-        link.rel = 'stylesheet';
-        link.type = 'text/css';
-        link.href = 'https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css';
-        head.appendChild(link);
-    }
-}
-
-addOn();
-
-const div = document.createElement('div');
-div.style.setProperty('display', 'flex');
-div.style.setProperty('gap', '1rem');
-
-const btnDownload = document.createElement('button');
-btnDownload.textContent = 'Download';
-btnDownload.type = 'button';
-btnDownload.style.setProperty('background', '#c4141b');
-btnDownload.style.setProperty('color', 'white');
-btnDownload.style.setProperty('cursor', 'pointer');
-btnDownload.style.setProperty('border', '0');
-btnDownload.style.setProperty('padding', '0.5rem 1rem');
-btnDownload.style.setProperty('display', 'block');
-btnDownload.style.setProperty('width', '100%');
-
-const btnClear = document.createElement('button');
-btnClear.textContent = 'Xóa cache';
-btnClear.type = 'button';
-btnClear.style.setProperty('background', '#c4141b');
-btnClear.style.setProperty('color', 'white');
-btnClear.style.setProperty('cursor', 'pointer');
-btnClear.style.setProperty('border', '0');
-btnClear.style.setProperty('padding', '0.5rem 1rem');
-btnClear.style.setProperty('display', 'block');
-btnClear.style.setProperty('width', '100%');
-
-div.append(btnDownload);
-div.append(btnClear);
-
-document.querySelector('#tcmst').append(div);
-
-btnDownload.addEventListener('click', function () {
-    const data = localStorage.getItem('meta_panic');
-    if (!data) {
-        Toastify({ text: "Chưa có dữ liệu!", duration: 3000 }).showToast();
-        return;
-    }
-    filename = 'reports.xlsx';
-    const ws = XLSX.utils.json_to_sheet(JSON.parse(data));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "People");
-    XLSX.writeFile(wb, filename);
-}, false);
-
-btnClear.addEventListener('click', () => {
-    localStorage.clear();
-    Toastify({ text: "Xóa thành công!", duration: 3000 }).showToast();
-})
+// Initialize the application
+new TaxCodeApp();
