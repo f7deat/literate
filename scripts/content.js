@@ -16,7 +16,8 @@ const SELECTORS = {
     TAX_INPUT: 'input[name="mst"]',
     SUBMIT_BTN: '.subBtn',
     TAX_CODES: '#taxCodes',
-    TABLE: '.ta_border',
+    TABLE: '#detail .ta_border',
+    TABLE_SEARCH: '#resultContainer .ta_border',
     TITLE: 'h3',
     FORM: 'form[name=myform]'
 };
@@ -83,7 +84,7 @@ const DOMUtil = {
 
     createElement(tag, options = {}) {
         const element = document.createElement(tag);
-        
+
         if (options.textContent) element.textContent = options.textContent;
         if (options.classes) element.classList.add(...options.classes);
         if (options.id) element.id = options.id;
@@ -93,7 +94,7 @@ const DOMUtil = {
                 element.style.setProperty(prop, value);
             });
         }
-        
+
         return element;
     }
 };
@@ -118,7 +119,7 @@ class TaxCodeManager {
                 ToastUtil.error(MESSAGES.EMPTY_TAX_CODE);
                 return;
             }
-            
+
             const submitBtn = DOMUtil.querySelector(SELECTORS.SUBMIT_BTN);
             if (submitBtn) {
                 submitBtn.click();
@@ -129,7 +130,7 @@ class TaxCodeManager {
 
     nextTax() {
         const taxCodes = StorageUtil.getTaxCodes();
-        
+
         if (taxCodes.length === 0) return;
 
         // Remove current tax code and get next one
@@ -197,11 +198,11 @@ class UIManager {
 
         const taxCodes = input.value.split('\n').filter(code => code.trim());
         StorageUtil.setTaxCodes(taxCodes);
-        
+
         if (this.taxCodeManager.taxInput && taxCodes.length > 0) {
             this.taxCodeManager.taxInput.value = taxCodes[0];
         }
-        
+
         input.value = taxCodes.join(',');
         ToastUtil.success(MESSAGES.LOAD_DATA_SUCCESS);
     }
@@ -241,7 +242,7 @@ class UIManager {
                 width: '100%'
             }
         });
-        
+
         button.addEventListener('click', clickHandler);
         return button;
     }
@@ -276,7 +277,7 @@ class DataProcessor {
         const taxInput = this.taxCodeManager.taxInput;
         if (!taxInput?.value) return;
 
-        const table = DOMUtil.querySelector(SELECTORS.TABLE);
+        const table = DOMUtil.querySelector(SELECTORS.TABLE_SEARCH);
         if (!table) return;
 
         const titleElement = DOMUtil.querySelector(SELECTORS.TITLE);
@@ -285,60 +286,42 @@ class DataProcessor {
         const title = titleElement.textContent.trim();
 
         if (title === TITLES.SEARCH_INFO) {
-            this.processSearchResults(table);
-        } else if (title === TITLES.DETAIL_INFO) {
-            this.processDetailInfo(table);
+            setTimeout(() => this.processSearchResults(), 1000);
         }
     }
 
-    processSearchResults(table) {
-        const record = table.rows[1]?.cells;
+    processSearchResults() {
+        const response = document.querySelectorAll('script')[7].textContent;
+
+        if (!response) return;
+        // Sử dụng Regular Expression để tìm và tách chuỗi JSON
+        var jsonString = response.match(/{.*}/s)[0]; // match tìm chuỗi JSON trong JS
+        var nntJson = JSON.parse(jsonString);
+        const record = nntJson.DATA[0];
         if (!record) return;
 
         const data = StorageUtil.getMetaData();
         const taxInput = this.taxCodeManager.taxInput;
 
-        let item;
-        if (!record[1]) {
-            // Single column result
-            item = {
-                STT: data.length + 1,
-                MST: taxInput.value,
-                Name: record[0].textContent.trim(),
-                Address: '',
-                CCCD: '',
-                Note: '',
-                Director: '',
-                DirectorAddress: ''
-            };
-        } else {
-            // Full record
-            item = {
-                STT: data.length + 1,
-                MST: record[1].textContent.trim(),
-                Name: record[2].textContent.trim(),
-                Address: '',
-                CCCD: record[4].textContent.trim(),
-                Note: record[6].textContent.trim(),
-                Director: '',
-                DirectorAddress: ''
-            };
-        }
+        let item = {
+            STT: data.length + 1,
+            MST: taxInput.value,
+            TEN_NNT: record.TEN_NNT || '',
+            NGAY_BAT_DAU_KD: record.NGAY_BAT_DAU_KD || '',
+            TEN_CQT_QLY: record.TEN_CQT_QLY || '',
+            DCHI_HIEN_TAI: record.BU_OWNER[0].DCHI_HIEN_TAI || '',
+            TEN_TRANG_THAI: record.TEN_TRANG_THAI || '',
+            TEN_CHU_DN: record.TEN_CHU_DN || '',
+            CCCD: record.BU_OWNER[0].IDNUMBER || '',
+            NGAY_SINH: record.BU_OWNER[0].NGAY_SINH || '',
+            TEN_LOAI_NNT: record.TEN_LOAI_NNT || '',
+            NAM_TCHINH_TU: record.NAM_TCHINH_TU || '',
+            NAM_TCHINH_DEN: record.NAM_TCHINH_DEN || '',
+            NGAY_NHAN_TKHAI: record.NGAY_NHAN_TKHAI || ''
+        };
 
-        if (!data.find(x => x.MST === item.MST)) {
-            data.push(item);
-            StorageUtil.setMetaData(data);
-        }
-
-        if (record[1]) {
-            // Submit form for detailed info
-            const form = DOMUtil.querySelector(SELECTORS.FORM);
-            if (form && form.id) {
-                form.id.value = item.MST;
-                form.submit();
-                return;
-            }
-        }
+        data.push(item);
+        StorageUtil.setMetaData(data);
 
         this.taxCodeManager.nextTax();
     }
@@ -346,14 +329,15 @@ class DataProcessor {
     processDetailInfo(table) {
         const data = StorageUtil.getMetaData();
         const taxCode = table.rows[0]?.cells[1]?.textContent.trim();
-        
+
         if (!taxCode) return;
 
         const index = data.findIndex(x => x.MST === taxCode);
         if (index !== -1) {
             data[index].Address = table.rows[3]?.cells[1]?.textContent.trim() || '';
-            data[index].Director = table.rows[11]?.cells[1]?.textContent.trim() || '';
-            data[index].DirectorAddress = table.rows[11]?.cells[3]?.textContent.trim() || '';
+            data[index].Director = table.rows[12]?.cells[1]?.textContent.trim() || '';
+            data[index].FoundationDate = table.rows[9]?.cells[1]?.textContent.trim() || '';
+            data[index].Department = table.rows[2]?.cells[1]?.textContent.trim() || '';
             StorageUtil.setMetaData(data);
         }
 
@@ -392,5 +376,4 @@ class TaxCodeApp {
     }
 }
 
-// Initialize the application
 new TaxCodeApp();
