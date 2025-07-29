@@ -303,21 +303,20 @@ class DataProcessor {
         const data = StorageUtil.getMetaData();
         const taxInput = this.taxCodeManager.taxInput;
 
+        const DKT_DIA_CHI = record.DKT_DIA_CHI.find(x => x.LOAI === 'XXDEFAULT');
+
         let item = {
             STT: data.length + 1,
             MST: taxInput.value,
             TEN_NNT: record.TEN_NNT || '',
             NGAY_BAT_DAU_KD: record.NGAY_BAT_DAU_KD || '',
             TEN_CQT_QLY: record.TEN_CQT_QLY || '',
-            DCHI_HIEN_TAI: record.BU_OWNER[0].DCHI_HIEN_TAI || '',
+            DIA_CHI: DKT_DIA_CHI.DIA_CHI + ', ' + DKT_DIA_CHI.PHUONG_XA + ', ' + DKT_DIA_CHI.TINH_TP,
             TEN_TRANG_THAI: record.TEN_TRANG_THAI || '',
             TEN_CHU_DN: record.TEN_CHU_DN || '',
             CCCD: record.BU_OWNER[0].IDNUMBER || '',
             NGAY_SINH: record.BU_OWNER[0].NGAY_SINH || '',
-            TEN_LOAI_NNT: record.TEN_LOAI_NNT || '',
-            NAM_TCHINH_TU: record.NAM_TCHINH_TU || '',
-            NAM_TCHINH_DEN: record.NAM_TCHINH_DEN || '',
-            NGAY_NHAN_TKHAI: record.NGAY_NHAN_TKHAI || ''
+            TEN_LOAI_NNT: record.TEN_LOAI_NNT || ''
         };
 
         data.push(item);
