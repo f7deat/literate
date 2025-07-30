@@ -311,12 +311,15 @@ class DataProcessor {
             TEN_NNT: record.TEN_NNT || '',
             NGAY_BAT_DAU_KD: record.NGAY_BAT_DAU_KD || '',
             TEN_CQT_QLY: record.TEN_CQT_QLY || '',
-            DIA_CHI: DKT_DIA_CHI.DIA_CHI + ', ' + DKT_DIA_CHI.PHUONG_XA + ', ' + DKT_DIA_CHI.TINH_TP,
+            DIA_CHI: DKT_DIA_CHI ? DKT_DIA_CHI.DIA_CHI + ', ' + DKT_DIA_CHI.PHUONG_XA + ', ' + DKT_DIA_CHI.TINH_TP : '',
             TEN_TRANG_THAI: record.TEN_TRANG_THAI || '',
             TEN_CHU_DN: record.TEN_CHU_DN || '',
             CCCD: record.BU_OWNER[0].IDNUMBER || '',
+            NGAY_CAP: record.BU_OWNER[0].ENTRY_DATE || '',
             NGAY_SINH: record.BU_OWNER[0].NGAY_SINH || '',
-            TEN_LOAI_NNT: record.TEN_LOAI_NNT || ''
+            TEN_LOAI_NNT: record.TEN_LOAI_NNT || '',
+            DIEN_THOAI: DKT_DIA_CHI ? DKT_DIA_CHI.DIEN_THOAI || '' : '',
+            EMAIL: DKT_DIA_CHI ? DKT_DIA_CHI.EMAIL || '' : '',
         };
 
         data.push(item);
